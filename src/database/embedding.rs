@@ -83,10 +83,10 @@ pub fn embed(text: &str) -> Result<Vec<f32>, DbError> {
             used = true;
         }
         for (concept, words) in CONCEPTS {
-            if words.contains(&token.as_str()) {
-                if let Some(slot) = v.get_mut(bucket(concept)) {
-                    *slot += 2.0;
-                }
+            if words.contains(&token.as_str())
+                && let Some(slot) = v.get_mut(bucket(concept))
+            {
+                *slot += 2.0;
             }
         }
     }

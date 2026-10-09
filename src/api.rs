@@ -147,12 +147,12 @@ fn validate(req: &AnalyzeRequest) -> Result<(), ApiError> {
             "note must be between 1 and {MAX_NOTE_CHARS} characters"
         )));
     }
-    if let Some(pct) = req.intended_risk_pct {
-        if !pct.is_finite() || pct <= 0.0 || pct >= 100.0 {
-            return Err(ApiError::BadRequest(
-                "intended_risk_pct must be between 0 and 100".to_string(),
-            ));
-        }
+    if let Some(pct) = req.intended_risk_pct
+        && (!pct.is_finite() || pct <= 0.0 || pct >= 100.0)
+    {
+        return Err(ApiError::BadRequest(
+            "intended_risk_pct must be between 0 and 100".to_string(),
+        ));
     }
     reward_to_risk(req.entry, req.target, req.stop_loss)?;
     Ok(())
