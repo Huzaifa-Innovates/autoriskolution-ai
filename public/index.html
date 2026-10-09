@@ -1,0 +1,301 @@
+<!doctype html>
+<html lang="en">
+
+<head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <title>AutoRiskolution AI</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+</head>
+
+<body class="bg-slate-950 text-slate-100 min-h-screen">
+    <header class="border-b border-slate-800">
+        <div class="max-w-6xl mx-auto px-4 py-4 flex items-center justify-between">
+            <div>
+                <h1 class="text-xl font-bold tracking-tight">AutoRiskolution <span class="text-emerald-400">AI</span>
+                </h1>
+                <p class="text-xs text-slate-400">Context-aware position sizing co-pilot</p>
+            </div>
+            <span class="text-xs text-slate-500">Rust · Axum · HelixDB</span>
+        </div>
+    </header>
+
+    <main class="max-w-6xl mx-auto px-4 py-6 grid gap-6 lg:grid-cols-5">
+        <!-- INPUT -->
+        <section class="lg:col-span-2 bg-slate-900 border border-slate-800 rounded-xl p-5">
+            <h2 class="font-semibold mb-4">Trade setup</h2>
+            <form id="form" class="space-y-4">
+                <div class="grid grid-cols-2 gap-3">
+                    <label class="text-sm text-slate-300">Balance ($)
+                        <input id="balance" type="number" step="any" value="10000" required
+                            class="mt-1 w-full rounded-lg bg-slate-800 border border-slate-700 px-3 py-2 focus:outline-none focus:border-emerald-500">
+                    </label>
+                    <label class="text-sm text-slate-300">Entry
+                        <input id="entry" type="number" step="any" value="100" required
+                            class="mt-1 w-full rounded-lg bg-slate-800 border border-slate-700 px-3 py-2 focus:outline-none focus:border-emerald-500">
+                    </label>
+                    <label class="text-sm text-slate-300">Target
+                        <input id="target" type="number" step="any" value="110" required
+                            class="mt-1 w-full rounded-lg bg-slate-800 border border-slate-700 px-3 py-2 focus:outline-none focus:border-emerald-500">
+                    </label>
+                    <label class="text-sm text-slate-300">Stop loss
+                        <input id="stop" type="number" step="any" value="95" required
+                            class="mt-1 w-full rounded-lg bg-slate-800 border border-slate-700 px-3 py-2 focus:outline-none focus:border-emerald-500">
+                    </label>
+                </div>
+                <label class="block text-sm text-slate-300">Risk you were about to take (% of balance, optional)
+                    <input id="intended" type="number" step="any" min="0" max="99" placeholder="e.g. 10"
+                        class="mt-1 w-full rounded-lg bg-slate-800 border border-slate-700 px-3 py-2 focus:outline-none focus:border-emerald-500">
+                </label>
+                <label class="block text-sm text-slate-300">Market notes
+                    <textarea id="note" rows="3" maxlength="500" required
+                        placeholder="Describe how the market feels right now..."
+                        class="mt-1 w-full rounded-lg bg-slate-800 border border-slate-700 px-3 py-2 focus:outline-none focus:border-emerald-500"></textarea>
+                </label>
+                <div class="flex flex-wrap gap-2 text-xs">
+                    <button type="button" data-preset="volatile"
+                        class="preset px-3 py-1.5 rounded-full border border-slate-700 hover:border-red-400 text-slate-300">Example:
+                        nervous, pre-news</button>
+                    <button type="button" data-preset="calm"
+                        class="preset px-3 py-1.5 rounded-full border border-slate-700 hover:border-emerald-400 text-slate-300">Example:
+                        calm range</button>
+                </div>
+                <button id="submit" type="submit"
+                    class="w-full rounded-lg bg-emerald-500 hover:bg-emerald-400 text-slate-950 font-semibold py-2.5 disabled:opacity-50">
+                    Analyze position
+                </button>
+                <p id="error"
+                    class="hidden text-sm text-red-300 bg-red-950/50 border border-red-900 rounded-lg px-3 py-2"></p>
+            </form>
+        </section>
+
+        <!-- RESULTS -->
+        <section class="lg:col-span-3 space-y-4">
+            <div id="placeholder"
+                class="bg-slate-900 border border-dashed border-slate-700 rounded-xl p-10 text-center text-slate-400">
+                Enter your trade and a note about the market, then press <b>Analyze position</b>.
+            </div>
+
+            <div id="results" class="hidden space-y-4">
+                <div id="banner" class="rounded-xl border px-5 py-4">
+                    <div id="bannerTitle" class="font-bold text-lg"></div>
+                    <div id="bannerText" class="text-sm mt-1 opacity-90"></div>
+                </div>
+
+                <div class="grid sm:grid-cols-2 gap-4">
+                    <div class="bg-slate-900 border border-slate-800 rounded-xl p-5 text-center">
+                        <div class="text-xs uppercase tracking-wide text-slate-400 mb-2">Recommended size</div>
+                        <div id="recGauge"></div>
+                    </div>
+                    <div class="bg-slate-900 border border-slate-800 rounded-xl p-5 text-center">
+                        <div class="text-xs uppercase tracking-wide text-slate-400 mb-2">Your intended size</div>
+                        <div id="intGauge"></div>
+                    </div>
+                </div>
+
+                <div class="grid grid-cols-2 sm:grid-cols-4 gap-3">
+                    <div class="bg-slate-900 border border-slate-800 rounded-xl p-4">
+                        <div class="text-xs text-slate-400">Risk per trade</div>
+                        <div id="kRisk" class="text-lg font-semibold"></div>
+                    </div>
+                    <div class="bg-slate-900 border border-slate-800 rounded-xl p-4">
+                        <div class="text-xs text-slate-400">Risk amount</div>
+                        <div id="kAmount" class="text-lg font-semibold"></div>
+                    </div>
+                    <div class="bg-slate-900 border border-slate-800 rounded-xl p-4">
+                        <div class="text-xs text-slate-400">Position (units)</div>
+                        <div id="kUnits" class="text-lg font-semibold"></div>
+                    </div>
+                    <div class="bg-slate-900 border border-slate-800 rounded-xl p-4">
+                        <div class="text-xs text-slate-400">Reward : risk</div>
+                        <div id="kRatio" class="text-lg font-semibold"></div>
+                    </div>
+                    <div class="bg-slate-900 border border-slate-800 rounded-xl p-4">
+                        <div class="text-xs text-slate-400">Win rate used</div>
+                        <div id="kWin" class="text-lg font-semibold"></div>
+                    </div>
+                    <div class="bg-slate-900 border border-slate-800 rounded-xl p-4">
+                        <div class="text-xs text-slate-400">Full Kelly</div>
+                        <div id="kFull" class="text-lg font-semibold"></div>
+                    </div>
+                    <div class="bg-slate-900 border border-slate-800 rounded-xl p-4 col-span-2">
+                        <div class="text-xs text-slate-400">Bad-luck balance after 100 trades (5th percentile)</div>
+                        <div id="kBad" class="text-lg font-semibold"></div>
+                    </div>
+                </div>
+
+                <div class="bg-slate-900 border border-slate-800 rounded-xl p-5">
+                    <h3 class="font-semibold mb-1">Historical evidence</h3>
+                    <p id="evSummary" class="text-sm text-slate-300"></p>
+                    <div id="evWarn"
+                        class="hidden mt-3 text-sm text-amber-200 bg-amber-950/50 border border-amber-900 rounded-lg px-3 py-2">
+                    </div>
+                    <div id="evPatterns" class="flex flex-wrap gap-2 mt-3"></div>
+                    <ul id="evList" class="mt-3 divide-y divide-slate-800 text-sm"></ul>
+                </div>
+
+                <p class="text-xs text-slate-500">
+                    Sizing uses quarter-Kelly capped at 5% per trade. Survival = share of 5,000 simulated
+                    100-trade futures that never lose more than 50% of the account. Decision support, not financial
+                    advice.
+                </p>
+            </div>
+        </section>
+    </main>
+
+    <script>
+        const $ = (id) => document.getElementById(id);
+        const money = new Intl.NumberFormat('en-US', {style: 'currency', currency: 'USD', maximumFractionDigits: 0});
+        const pct = (v, d = 1) => `${Number(v).toFixed(d)}%`;
+
+        const PRESETS = {
+            volatile: {note: 'Market feels nervous and volatile before inflation news', intended: 10},
+            calm: {note: 'calm quiet sideways range', intended: 30},
+        };
+
+        function el(tag, cls, text) {
+            const node = document.createElement(tag);
+            if (cls) node.className = cls;
+            if (text !== undefined) node.textContent = text;
+            return node;
+        }
+
+        function gaugeColor(v) {
+            if (v >= 90) return 'stroke-emerald-400';
+            if (v >= 70) return 'stroke-amber-400';
+            return 'stroke-red-400';
+        }
+
+        // Draws an SVG ring + caption into the container, using only DOM APIs.
+        function drawGauge(container, value, caption) {
+            container.replaceChildren();
+            const r = 52, c = 2 * Math.PI * r;
+            const ns = 'http://www.w3.org/2000/svg';
+            const svg = document.createElementNS(ns, 'svg');
+            svg.setAttribute('viewBox', '0 0 120 120');
+            svg.setAttribute('class', 'w-36 h-36 mx-auto');
+            const track = document.createElementNS(ns, 'circle');
+            for (const [k, v] of Object.entries({cx: 60, cy: 60, r, fill: 'none', 'stroke-width': 10, class: 'stroke-slate-800'})) track.setAttribute(k, v);
+            const arc = document.createElementNS(ns, 'circle');
+            const dash = (Math.max(0, Math.min(100, value)) / 100) * c;
+            for (const [k, v] of Object.entries({
+                cx: 60, cy: 60, r, fill: 'none', 'stroke-width': 10, 'stroke-linecap': 'round',
+                'stroke-dasharray': `${dash} ${c}`, transform: 'rotate(-90 60 60)', class: gaugeColor(value),
+            })) arc.setAttribute(k, v);
+            const label = document.createElementNS(ns, 'text');
+            for (const [k, v] of Object.entries({x: 60, y: 66, 'text-anchor': 'middle', 'font-size': 20, 'font-weight': 700, fill: '#f1f5f9'})) label.setAttribute(k, v);
+            label.textContent = pct(value);
+            svg.append(track, arc, label);
+            container.append(svg, el('div', 'text-xs text-slate-400 mt-1', caption));
+        }
+
+        function drawNote(container, big, small) {
+            container.replaceChildren(el('div', 'h-36 flex items-center justify-center text-2xl font-bold text-slate-300', big),
+                el('div', 'text-xs text-slate-400 mt-1', small));
+        }
+
+        const BANNERS = {
+            ok: ['Sizing looks healthy', 'A fractional-Kelly size fits the historical edge for this setup.', 'bg-emerald-950/50 border-emerald-800 text-emerald-100'],
+            no_edge: ['No trade: no statistical edge', 'History for this kind of market says the odds do not support risking money here.', 'bg-red-950/50 border-red-800 text-red-100'],
+            over_leveraged: ['Over-leveraged', 'Your intended size is larger than the evidence supports.', 'bg-amber-950/50 border-amber-800 text-amber-100'],
+    no_evidence: ['No historical evidence', 'No past note was similar enough, so size is capped at a cautious 1% starter risk.', 'bg-slate-800/60 border-slate-600 text-slate-100'],
+        };
+
+        function render(r) {
+            const [title, text, cls] = BANNERS[r.verdict] || BANNERS.ok;
+            $('banner').className = `rounded-xl border px-5 py-4 ${cls}`;
+            $('bannerTitle').textContent = title;
+            $('bannerText').textContent = text;
+
+            if (r.verdict === 'no_edge') {
+                drawNote($('recGauge'), 'NO TRADE', 'Recommended risk: 0%');
+            } else {
+                drawGauge($('recGauge'), r.survival_pct, `${pct(r.recommended_risk_pct, 2)} risk per trade`);
+            }
+            if (r.comparison) {
+                drawGauge($('intGauge'), r.comparison.survival_pct, `${pct(r.comparison.intended_risk_pct, 1)} risk per trade`);
+            } else {
+                drawNote($('intGauge'), 'n/a', 'Enter an intended risk % to compare');
+            }
+
+            $('kRisk').textContent = pct(r.recommended_risk_pct, 2);
+            $('kAmount').textContent = money.format(r.risk_amount);
+            $('kUnits').textContent = r.position_units.toFixed(2);
+            $('kRatio').textContent = `1 : ${r.reward_to_risk.toFixed(2)}`;
+            $('kWin').textContent = pct(r.win_rate_pct, 1);
+            $('kFull').textContent = pct(r.full_kelly_pct, 1);
+            $('kBad').textContent = r.verdict === 'no_edge' ? 'n/a (no trade)' : money.format(r.p5_final_balance);
+
+            const ctx = r.context;
+            const raw = ctx.raw_win_rate === null ? 'n/a' : pct(ctx.raw_win_rate * 100, 0);
+            $('evSummary').textContent = ctx.has_evidence
+                ? `${ctx.wins} wins in ${ctx.sample_size} past trades of this pattern (${raw} raw, ${pct(ctx.win_rate * 100, 1)} after small-sample smoothing).`
+                : 'No close match in your trade history.';
+            const warn = $('evWarn');
+            warn.classList.toggle('hidden', ctx.has_evidence);
+            warn.textContent = 'No past note was similar enough, so a neutral 50% win rate was assumed.';
+
+            $('evPatterns').replaceChildren(...(ctx.has_evidence ? ctx.patterns : []).map((p) => el('span', 'px-2.5 py-1 rounded-full bg-slate-800 border border-slate-700 text-xs', p.replaceAll('_', ' '))));
+            $('evList').replaceChildren(...ctx.similar.map((t) => {
+                const li = el('li', 'py-2 flex items-start justify-between gap-3');
+                li.append(
+                    el('span', 'text-slate-300', t.note),
+                    el('span', `shrink-0 text-xs px-2 py-0.5 rounded ${t.outcome === 'win' ? 'bg-emerald-900 text-emerald-200' : 'bg-red-900 text-red-200'}`,
+                        `${t.outcome} · ${(Math.max(0, 1 - t["$distance"]) * 100).toFixed(0)}% match`),
+                );
+                return li;
+            }));
+
+            $('placeholder').classList.add('hidden');
+            $('results').classList.remove('hidden');
+        }
+
+        function showError(message) {
+            const box = $('error');
+            box.textContent = message;
+            box.classList.toggle('hidden', !message);
+        }
+
+        document.querySelectorAll('.preset').forEach((btn) => btn.addEventListener('click', () => {
+            const p = PRESETS[btn.dataset.preset];
+            if (!p) return;
+            $('note').value = p.note;
+            $('intended').value = p.intended;
+            $('form').requestSubmit();
+        }));
+
+        $('form').addEventListener('submit', async (event) => {
+            event.preventDefault();
+            showError('');
+            const intended = $('intended').value.trim();
+            const body = {
+                balance: parseFloat($('balance').value),
+                entry: parseFloat($('entry').value),
+                target: parseFloat($('target').value),
+                stop_loss: parseFloat($('stop').value),
+                note: $('note').value,
+                intended_risk_pct: intended === '' ? null : parseFloat(intended),
+            };
+            const button = $('submit');
+            button.disabled = true;
+            button.textContent = 'Analyzing...';
+            try {
+                const res = await fetch('/api/analyze', {
+                    method: 'POST',
+                    headers: {'content-type': 'application/json'},
+                    body: JSON.stringify(body),
+                });
+                const data = await res.json();
+                if (!res.ok) throw new Error(data.error || `Request failed (${res.status})`);
+                render(data);
+            } catch (err) {
+                showError(err.message);
+            } finally {
+                button.disabled = false;
+                button.textContent = 'Analyze position';
+            }
+        });
+    </script>
+</body>
+
+</html>

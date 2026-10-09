@@ -1,0 +1,11 @@
+[project]
+name = "autoriskolution-ai"
+queries = "db"
+container_runtime = "docker"
+
+[local.dev]
+port = 6969
+image = "ghcr.io/helixdb/helixdb"
+tag = "v0.0.11"
+
+[enterprise]
